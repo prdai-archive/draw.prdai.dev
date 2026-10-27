@@ -6,6 +6,6 @@ After=network-online.target docker.service
 [Service]
 Type=oneshot
 Environment=APP_DIR=/opt/excalidash
-Environment=DEPLOY_REF=main
+EnvironmentFile=-/etc/excalidash-deploy.env
 ExecStart=/usr/local/bin/excalidash-deploy
 TimeoutStartSec=1800

@@ -94,6 +94,8 @@ fi
 install -m 0755 "$APP_DIR/infra/ec2/deploy.sh" /usr/local/bin/excalidash-deploy
 install -m 0644 "$APP_DIR/infra/ec2/excalidash-deploy.service" /etc/systemd/system/excalidash-deploy.service
 install -m 0644 "$APP_DIR/infra/ec2/excalidash-deploy.timer" /etc/systemd/system/excalidash-deploy.timer
+printf 'DEPLOY_REF=%s\n' "$REPO_REF" >/etc/excalidash-deploy.env
+chmod 0644 /etc/excalidash-deploy.env
 systemctl daemon-reload
 systemctl enable --now excalidash-deploy.timer
 

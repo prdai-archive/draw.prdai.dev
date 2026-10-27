@@ -2,9 +2,14 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/excalidash}"
-DEPLOY_REF="${DEPLOY_REF:-main}"
+CONFIG_FILE="${CONFIG_FILE:-/etc/excalidash-deploy.env}"
 BACKUP_RETENTION="${BACKUP_RETENTION:-4}"
 CERT_DIR="${CERT_DIR:-/etc/caddy/certs}"
+
+if [ -z "${DEPLOY_REF:-}" ] && [ -r "$CONFIG_FILE" ]; then
+  DEPLOY_REF=$(sed -n 's/^DEPLOY_REF=//p' "$CONFIG_FILE" | tail -n 1)
+fi
+DEPLOY_REF="${DEPLOY_REF:-main}"
 
 cd "$APP_DIR"
 
