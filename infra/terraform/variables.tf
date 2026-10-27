@@ -38,6 +38,12 @@ variable "cloudflare_zone" {
   type        = string
 }
 
+variable "manage_dns" {
+  description = "Create the Cloudflare DNS record. Disable to apply AWS resources before a Cloudflare token exists."
+  type        = bool
+  default     = true
+}
+
 variable "basic_auth_username" {
   description = "Username for the Caddy basic-auth gate in front of the app."
   type        = string

@@ -4,7 +4,7 @@ set -euo pipefail
 APP_DIR=/opt/excalidash
 DATA_VOLUME_LABEL=excalidash-docker
 SWAP_FILE=/swapfile
-SWAP_SIZE=1G
+SWAP_SIZE=2G
 # Pinned so first boot does not execute whatever the latest release happens to be.
 COMPOSE_VERSION=v5.6.1
 
@@ -56,7 +56,7 @@ grep -q "^$SWAP_FILE" /etc/fstab || printf '%s none swap sw 0 0\n' "$SWAP_FILE" 
 printf 'vm.swappiness=10\n' >/etc/sysctl.d/99-excalidash.conf
 sysctl -w vm.swappiness=10 >/dev/null
 
-dnf install -y docker tar curl
+dnf install -y --setopt=install_weak_deps=False docker tar curl
 systemctl enable --now docker
 
 mkdir -p /usr/local/lib/docker/cli-plugins
@@ -67,7 +67,7 @@ if [ ! -x /usr/local/lib/docker/cli-plugins/docker-compose ]; then
 fi
 
 if [ ! -d "$APP_DIR/.git" ]; then
-  dnf install -y git
+  dnf install -y --setopt=install_weak_deps=False git
   git clone --branch "$REPO_REF" "$REPO_URL" "$APP_DIR"
 fi
 
