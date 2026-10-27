@@ -56,7 +56,7 @@ grep -q "^$SWAP_FILE" /etc/fstab || printf '%s none swap sw 0 0\n' "$SWAP_FILE" 
 printf 'vm.swappiness=10\n' >/etc/sysctl.d/99-excalidash.conf
 sysctl -w vm.swappiness=10 >/dev/null
 
-dnf install -y --setopt=install_weak_deps=False docker tar curl
+dnf install -y --setopt=install_weak_deps=False docker tar
 systemctl enable --now docker
 
 mkdir -p /usr/local/lib/docker/cli-plugins
