@@ -1,0 +1,43 @@
+name: sync-upstream
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge upstream main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/ZimengXiong/ExcaliDash.git
+          git fetch upstream main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "already up to date"
+            exit 0
+          fi
+
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort
+            echo "upstream merge conflict. Resolve manually, then push main." >&2
+            exit 1
+          fi
+
+          git push origin main

@@ -1,0 +1,14 @@
+{
+	admin off
+}
+
+{$EXCALIDASH_HOSTNAME} {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	basic_auth {
+		{$EXCALIDASH_BASIC_AUTH_USER} {$EXCALIDASH_BASIC_AUTH_HASH}
+	}
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:6767 {
+		header_up X-Forwarded-Proto https
+	}
+}

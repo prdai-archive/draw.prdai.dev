@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee -a /var/log/excalidash-bootstrap.log) 2>&1
+
+APP_DIR=/opt/excalidash
+REPO_URL='${repo_url}'
+REPO_REF='${repo_ref}'
+HOSTNAME='${app_hostname}'
+BASIC_AUTH_USERNAME='${basic_auth_username}'
+BASIC_AUTH_PASSWORD_B64='${basic_auth_password_b64}'
+
+dnf install -y git
+
+if [ ! -d "$APP_DIR/.git" ]; then
+  git clone --branch "$REPO_REF" "$REPO_URL" "$APP_DIR"
+else
+  git -C "$APP_DIR" fetch origin "$REPO_REF"
+  git -C "$APP_DIR" reset --hard FETCH_HEAD
+fi
+
+EXCALIDASH_HOSTNAME="$HOSTNAME" \
+  EXCALIDASH_BASIC_AUTH_USERNAME="$BASIC_AUTH_USERNAME" \
+  EXCALIDASH_BASIC_AUTH_PASSWORD_B64="$BASIC_AUTH_PASSWORD_B64" \
+  EXCALIDASH_REPO_URL="$REPO_URL" \
+  EXCALIDASH_REPO_REF="$REPO_REF" \
+  bash "$APP_DIR/infra/ec2/bootstrap.sh"
