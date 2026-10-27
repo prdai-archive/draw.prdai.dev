@@ -4,7 +4,5 @@ cloudflare_zone = "prdai.dev"
 
 instance_type = "t4g.nano"
 
-basic_auth_username = "admin"
-basic_auth_password = "change-me"
 
 ssh_allowed_cidrs = ["203.0.113.10/32"]

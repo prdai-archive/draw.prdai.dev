@@ -7,8 +7,6 @@ APP_DIR=/opt/excalidash
 REPO_URL='${repo_url}'
 REPO_REF='${repo_ref}'
 HOSTNAME='${app_hostname}'
-BASIC_AUTH_USERNAME='${basic_auth_username}'
-BASIC_AUTH_PASSWORD_B64='${basic_auth_password_b64}'
 
 SWAP_FILE=/swapfile
 if ! swapon --show=NAME --noheadings | grep -qx "$SWAP_FILE"; then
@@ -29,8 +27,6 @@ else
 fi
 
 EXCALIDASH_HOSTNAME="$HOSTNAME" \
-  EXCALIDASH_BASIC_AUTH_USERNAME="$BASIC_AUTH_USERNAME" \
-  EXCALIDASH_BASIC_AUTH_PASSWORD_B64="$BASIC_AUTH_PASSWORD_B64" \
   EXCALIDASH_REPO_URL="$REPO_URL" \
   EXCALIDASH_REPO_REF="$REPO_REF" \
   bash "$APP_DIR/infra/ec2/bootstrap.sh"

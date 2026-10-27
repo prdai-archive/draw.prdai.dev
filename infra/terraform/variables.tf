@@ -44,18 +44,6 @@ variable "manage_dns" {
   default     = true
 }
 
-variable "basic_auth_username" {
-  description = "Username for the Caddy basic-auth gate in front of the app."
-  type        = string
-  default     = "admin"
-}
-
-variable "basic_auth_password" {
-  description = "Password for the Caddy basic-auth gate. Stored in Terraform state and EC2 user data."
-  type        = string
-  sensitive   = true
-}
-
 variable "repo_url" {
   description = "Repository cloned on the instance for compose files and the deploy script."
   type        = string

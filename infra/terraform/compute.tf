@@ -39,11 +39,9 @@ resource "aws_instance" "app" {
   key_name               = var.ssh_public_key == null ? null : aws_key_pair.ssh[0].key_name
 
   user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
-    repo_url                = var.repo_url
-    repo_ref                = var.repo_ref
-    app_hostname            = var.app_hostname
-    basic_auth_username     = var.basic_auth_username
-    basic_auth_password_b64 = base64encode(var.basic_auth_password)
+    repo_url     = var.repo_url
+    repo_ref     = var.repo_ref
+    app_hostname = var.app_hostname
   })
 
   user_data_replace_on_change = true

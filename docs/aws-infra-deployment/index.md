@@ -90,15 +90,12 @@ so the deploy token only needs DNS permissions.
 
 ## Access control
 
-Caddy puts HTTP basic auth in front of the whole site. `basic_auth_username`
-defaults to `admin`; `basic_auth_password` is required and must be set in
-`terraform.tfvars`. The app keeps its own first-run admin onboarding behind that
-gate, so the setup code from the backend log is still needed once.
+The app's own onboarding controls access. The first visit shows the authentication
+choice: create an admin account and require login, or keep the workspace open. The
+setup code for the admin account is printed in the backend log.
 
-The basic-auth hash is generated on first boot and stored in `/opt/excalidash/.env`.
-Rotating the password means updating those two lines and restarting the stack.
-This gate is a convenience lock, not a security boundary: the password also lands
-in EC2 user data, readable by anyone with `ec2:DescribeInstanceAttribute`.
+`FRONTEND_URL` is passed to the backend as `https://<host>`. Without it, browser
+requests fail with `Origin not allowed` during login and onboarding.
 
 ## Weekly automation
 

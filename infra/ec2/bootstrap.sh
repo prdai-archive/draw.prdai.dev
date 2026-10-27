@@ -12,8 +12,6 @@ REPO_URL="${EXCALIDASH_REPO_URL:-https://github.com/prdai-archive/ExcaliDash.git
 REPO_REF="${EXCALIDASH_REPO_REF:-main}"
 
 : "${EXCALIDASH_HOSTNAME:?EXCALIDASH_HOSTNAME is required}"
-: "${EXCALIDASH_BASIC_AUTH_USERNAME:?EXCALIDASH_BASIC_AUTH_USERNAME is required}"
-: "${EXCALIDASH_BASIC_AUTH_PASSWORD_B64:?EXCALIDASH_BASIC_AUTH_PASSWORD_B64 is required}"
 
 wait_for_data_device() {
   local label_device device
@@ -72,10 +70,6 @@ if [ ! -d "$APP_DIR/.git" ]; then
 fi
 
 if [ ! -f "$APP_DIR/.env" ]; then
-  basic_auth_password=$(printf '%s' "$EXCALIDASH_BASIC_AUTH_PASSWORD_B64" | base64 -d)
-  basic_auth_hash=$(docker run --rm caddy:2.11.7-alpine \
-    caddy hash-password --plaintext "$basic_auth_password")
-
   cat >"$APP_DIR/.env" <<EOF
 COMPOSE_PROJECT_NAME=excalidash
 EXCALIDASH_TAG=latest
@@ -83,8 +77,6 @@ EXCALIDASH_HOSTNAME=$EXCALIDASH_HOSTNAME
 FRONTEND_URL=https://$EXCALIDASH_HOSTNAME
 TRUST_PROXY=3
 FILE_UPLOAD_MAX_MB=100
-EXCALIDASH_BASIC_AUTH_USER=$EXCALIDASH_BASIC_AUTH_USERNAME
-EXCALIDASH_BASIC_AUTH_HASH='$basic_auth_hash'
 JWT_SECRET=$(openssl rand -hex 32)
 CSRF_SECRET=$(openssl rand -hex 32)
 EOF
