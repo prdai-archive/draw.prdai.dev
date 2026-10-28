@@ -12,28 +12,28 @@ database volume.
 
 ## What gets created
 
-| Resource | Detail |
-| --- | --- |
-| VPC, public subnet, internet gateway | Dedicated `10.42.0.0/16` network, no NAT |
-| EC2 instance | `t4g.nano`, Amazon Linux 2023 Arm64, 1 GiB swap |
-| Root volume | 8 GiB gp3, replaced with the instance |
-| Data volume | 8 GiB gp3 mounted at `/var/lib/docker`, `prevent_destroy` |
-| Elastic IP | Cloudflare origin address |
-| Security group | 443 from Cloudflare ranges only, SSH closed by default |
-| IAM role | `AmazonSSMManagedInstanceCore` for shell access without open ports |
-| Cloudflare A record | `draw.prdai.dev`, proxied, points at the Elastic IP |
+| Resource                             | Detail                                                             |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| VPC, public subnet, internet gateway | Dedicated `10.42.0.0/16` network, no NAT                           |
+| EC2 instance                         | `t4g.nano`, Amazon Linux 2023 Arm64, 1 GiB swap                    |
+| Root volume                          | 8 GiB gp3, replaced with the instance                              |
+| Data volume                          | 8 GiB gp3 mounted at `/var/lib/docker`, `prevent_destroy`          |
+| Elastic IP                           | Cloudflare origin address                                          |
+| Security group                       | 443 from Cloudflare ranges only, SSH closed by default             |
+| IAM role                             | `AmazonSSMManagedInstanceCore` for shell access without open ports |
+| Cloudflare A record                  | `draw.prdai.dev`, proxied, points at the Elastic IP                |
 
 ## Cost
 
 Mumbai list prices, 730 hours per month:
 
-| Item | Monthly |
-| --- | --- |
-| t4g.nano | $2.04 |
-| 16 GiB gp3 (root + data) | $1.46 |
-| Public IPv4 | $3.65 |
-| Cloudflare proxy | $0.00 |
-| **Total** | **$7.15** |
+| Item                     | Monthly   |
+| ------------------------ | --------- |
+| t4g.nano                 | $2.04     |
+| 16 GiB gp3 (root + data) | $1.46     |
+| Public IPv4              | $3.65     |
+| Cloudflare proxy         | $0.00     |
+| **Total**                | **$7.15** |
 
 No EC2 free tier applies to a paid-plan account. Check remaining credits with
 `aws freetier get-account-plan-state`.
@@ -99,9 +99,9 @@ requests fail with `Origin not allowed` during login and onboarding.
 
 ## Weekly automation
 
-| Job | When | Failure behavior |
-| --- | --- | --- |
-| `sync-upstream` workflow | Monday 02:00 UTC | Merge conflicts abort the run and push nothing |
+| Job                       | When             | Failure behavior                                              |
+| ------------------------- | ---------------- | ------------------------------------------------------------- |
+| `sync-upstream` workflow  | Monday 02:00 UTC | Merge conflicts abort the run and push nothing                |
 | `excalidash-deploy` timer | Monday 03:30 UTC | Health check fails the unit and keeps the previous containers |
 
 The workflow merges `ZimengXiong/ExcaliDash` `main` into the fork. The fork keeps
@@ -145,10 +145,10 @@ sudo systemctl start excalidash-deploy.timer
 
 ## Troubleshooting
 
-| Symptom | Check |
-| --- | --- |
-| Cloudflare 522 | Security group allows the current Cloudflare ranges; Caddy is running |
-| Caddy exits on boot | Both `origin.pem` and `origin.key` exist in `/etc/caddy/certs` |
-| Sync workflow cannot push | Repository settings -> Actions -> Workflow permissions -> Read and write |
-| Collaboration drops | `TRUST_PROXY=3` matches Cloudflare, Caddy, and nginx; WebSocket upgrades reach `/socket.io/` |
-| Out of memory | `free -m`, `dmesg -T | tail`; swap lives on the root volume |
+| Symptom                   | Check                                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| Cloudflare 522            | Security group allows the current Cloudflare ranges; Caddy is running                        |
+| Caddy exits on boot       | Both `origin.pem` and `origin.key` exist in `/etc/caddy/certs`                               |
+| Sync workflow cannot push | Repository settings -> Actions -> Workflow permissions -> Read and write                     |
+| Collaboration drops       | `TRUST_PROXY=3` matches Cloudflare, Caddy, and nginx; WebSocket upgrades reach `/socket.io/` |
+| Out of memory             | `free -m`, `dmesg -T                                                                         | tail`; swap lives on the root volume |
