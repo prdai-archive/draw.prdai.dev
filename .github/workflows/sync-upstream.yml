@@ -1,0 +1,102 @@
+name: sync-upstream
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge upstream main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/ZimengXiong/ExcaliDash.git
+          git fetch upstream main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "already up to date"
+            exit 0
+          fi
+
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort
+            echo "upstream merge conflict. Resolve manually, then push main." >&2
+            exit 1
+          fi
+
+          git push origin main
+
+  deploy:
+    needs: sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+      INSTANCE_ID: ${{ vars.EXCALIDASH_INSTANCE_ID }}
+      ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+    steps:
+      - name: Check deploy configuration
+        run: |
+          set -euo pipefail
+          [ -n "$INSTANCE_ID" ] || { echo "EXCALIDASH_INSTANCE_ID repository variable is not set" >&2; exit 1; }
+          [ -n "$ROLE_ARN" ] || { echo "AWS_DEPLOY_ROLE_ARN repository variable is not set" >&2; exit 1; }
+
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy over SSM
+        run: |
+          set -euo pipefail
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy from ${GITHUB_SHA}" \
+            --parameters 'commands=["DEPLOY_REF=main /usr/local/bin/excalidash-deploy"]' \
+            --query 'Command.CommandId' \
+            --output text)
+
+          status=InProgress
+          for _ in $(seq 1 120); do
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$INSTANCE_ID" \
+              --query Status \
+              --output text 2>/dev/null || echo Pending)
+            case "$status" in
+              Pending | InProgress | Delayed) sleep 10 ;;
+              *) break ;;
+            esac
+          done
+
+          if [ "$status" != "Success" ]; then
+            echo "SSM command finished with status $status" >&2
+            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query StandardOutputContent --output text >&2 || true
+            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query StandardErrorContent --output text >&2 || true
+            exit 1
+          fi
+
+          aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent \
+            --output text

@@ -1,0 +1,26 @@
+services:
+  frontend:
+    ports: !override
+      - "127.0.0.1:6767:8080"
+
+  backend:
+    environment:
+      FRONTEND_URL: https://${EXCALIDASH_HOSTNAME:?set EXCALIDASH_HOSTNAME}
+      TRUST_PROXY: "3"
+
+  caddy:
+    image: caddy:2.11.7-alpine
+    container_name: excalidash-caddy
+    network_mode: host
+    environment:
+      EXCALIDASH_HOSTNAME: ${EXCALIDASH_HOSTNAME:?set EXCALIDASH_HOSTNAME}
+    volumes:
+      - ./infra/ec2/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /etc/caddy/certs:/etc/caddy/certs:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

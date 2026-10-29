@@ -1,0 +1,8 @@
+aws_region      = "ap-south-1"
+app_hostname    = "draw.prdai.dev"
+cloudflare_zone = "prdai.dev"
+
+instance_type = "t4g.nano"
+
+
+ssh_allowed_cidrs = ["203.0.113.10/32"]
