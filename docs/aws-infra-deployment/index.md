@@ -25,7 +25,8 @@ database volume.
 
 ## Cost
 
-Mumbai list prices, 730 hours per month:
+Mumbai list prices, 730 hours per month. AZ capacity can force a larger instance
+(`t4g.small` is the next step up when `t4g.nano` is unavailable):
 
 | Item                     | Monthly   |
 | ------------------------ | --------- |
@@ -99,17 +100,28 @@ requests fail with `Origin not allowed` during login and onboarding.
 
 ## Weekly automation
 
-| Job                       | When             | Failure behavior                                              |
-| ------------------------- | ---------------- | ------------------------------------------------------------- |
-| `sync-upstream` workflow  | Monday 02:00 UTC | Merge conflicts abort the run and push nothing                |
-| `excalidash-deploy` timer | Monday 03:30 UTC | Health check fails the unit and keeps the previous containers |
+| Job                        | When             | Failure behavior                                             |
+| -------------------------- | ---------------- | ------------------------------------------------------------ |
+| `sync-upstream` merge      | Monday 02:00 UTC | Merge conflicts abort the run and push nothing               |
+| `sync-upstream` deploy job | After the merge  | SSM status is reported and the job fails if the deploy fails |
+| `excalidash-deploy` timer  | Monday 03:30 UTC | Fallback deploy; keeps the previous containers on failure    |
 
-The workflow merges `ZimengXiong/ExcaliDash` `main` into the fork. The fork keeps
-its `infra/` and `docs/` additions, so the merge stays clean unless upstream edits
-the same lines.
+The workflow merges `ZimengXiong/ExcaliDash` `main` into the fork, then deploys
+over SSM. The deploy job assumes an IAM role through GitHub OIDC, so there is no
+stored AWS key and no SSH port. Terraform creates the provider and role; the
+workflow needs these repository variables:
 
-The timer is a separate concern from the source sync. Deployed code tracks the
-published `zimengxiong/excalidash-*` images, not the fork checkout:
+| Variable                 | Value                                     |
+| ------------------------ | ----------------------------------------- |
+| `AWS_DEPLOY_ROLE_ARN`    | `terraform output github_deploy_role_arn` |
+| `EXCALIDASH_INSTANCE_ID` | `terraform output instance_id`            |
+| `AWS_REGION`             | Optional, defaults to `ap-south-1`        |
+
+Pushes made with the workflow's `GITHUB_TOKEN` do not trigger other workflows, so
+the deploy runs as a second job in the same workflow rather than as a `push`
+trigger. The role trust accepts only `refs/heads/main`.
+
+The timer remains a fallback and runs the same script directly on the host:
 
 ```sh
 sudo systemctl list-timers excalidash-deploy.timer

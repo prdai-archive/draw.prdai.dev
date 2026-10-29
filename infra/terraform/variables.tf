@@ -109,3 +109,15 @@ variable "cloudflare_ipv6_cidrs" {
     "2c0f:f248::/32",
   ]
 }
+
+variable "github_repository" {
+  description = "owner/repo allowed to assume the deploy role through GitHub OIDC."
+  type        = string
+  default     = "prdai-archive/draw.prdai.dev"
+}
+
+variable "availability_zone" {
+  description = "AZ for the public subnet and instance. The EBS data volume must be in the same AZ."
+  type        = string
+  default     = "ap-south-1b"
+}

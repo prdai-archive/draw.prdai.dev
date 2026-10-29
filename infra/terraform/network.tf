@@ -1,7 +1,3 @@
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 resource "aws_vpc" "main" {
   cidr_block           = "10.42.0.0/16"
   enable_dns_support   = true
@@ -15,7 +11,7 @@ resource "aws_internet_gateway" "main" {
 resource "aws_subnet" "public" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.42.1.0/24"
-  availability_zone = data.aws_availability_zones.available.names[0]
+  availability_zone = var.availability_zone
 }
 
 resource "aws_route_table" "public" {
