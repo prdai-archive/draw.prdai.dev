@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_DIR=/opt/excalidash
-DATA_VOLUME_LABEL=excalidash-docker
+DATA_VOLUME_LABEL=excalidash-data
 SWAP_FILE=/swapfile
 SWAP_SIZE=2G
 # Pinned so first boot does not execute whatever the latest release happens to be.
