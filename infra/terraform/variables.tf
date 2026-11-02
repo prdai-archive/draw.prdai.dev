@@ -121,3 +121,15 @@ variable "availability_zone" {
   type        = string
   default     = "ap-south-1b"
 }
+
+variable "use_spot_instance" {
+  description = "Launch as a persistent Spot instance instead of on-demand."
+  type        = bool
+  default     = false
+}
+
+variable "spot_max_price" {
+  description = "Optional Spot price ceiling per hour. Null uses the on-demand price."
+  type        = string
+  default     = null
+}

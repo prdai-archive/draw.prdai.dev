@@ -50,6 +50,20 @@ resource "aws_instance" "app" {
 
   user_data_replace_on_change = true
 
+  dynamic "instance_market_options" {
+    for_each = var.use_spot_instance ? [1] : []
+
+    content {
+      market_type = "spot"
+
+      spot_options {
+        spot_instance_type             = "persistent"
+        instance_interruption_behavior = "stop"
+        max_price                      = var.spot_max_price
+      }
+    }
+  }
+
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
