@@ -29,6 +29,9 @@ compose=(docker compose -f docker-compose.prod.yml -f infra/ec2/compose.override
 git fetch --prune origin
 git reset --hard "origin/$DEPLOY_REF"
 
+"${compose[@]}" pull
+docker pull alpine:3.24 >/dev/null
+
 mkdir -p "$APP_DIR/backups"
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 
@@ -40,7 +43,6 @@ if docker volume inspect "${PROJECT}_backend-data" >/dev/null 2>&1; then
     alpine:3.24 sh -c "tar czf /backup/predeploy-${stamp}.tgz -C /data ."
 fi
 
-"${compose[@]}" pull
 "${compose[@]}" up -d --remove-orphans
 docker image prune -f >/dev/null
 
