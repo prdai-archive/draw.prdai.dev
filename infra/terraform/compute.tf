@@ -1,15 +1,19 @@
+locals {
+  ami_arch = anytrue([for prefix in ["t3a.", "t3.", "t2.", "m5.", "m6i.", "c5."] : startswith(var.instance_type, prefix)]) ? "x86_64" : "arm64"
+}
+
 data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["al2023-ami-2023.*-arm64"]
+    values = ["al2023-ami-2023.*-${local.ami_arch}"]
   }
 
   filter {
     name   = "architecture"
-    values = ["arm64"]
+    values = [local.ami_arch]
   }
 
   filter {

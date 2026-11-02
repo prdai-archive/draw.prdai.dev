@@ -57,9 +57,18 @@ sysctl -w vm.swappiness=10 >/dev/null
 dnf install -y --setopt=install_weak_deps=False docker tar
 systemctl enable --now docker
 
+case "$(uname -m)" in
+  aarch64) compose_arch=aarch64 ;;
+  x86_64) compose_arch=x86_64 ;;
+  *)
+    echo "unsupported architecture: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
 mkdir -p /usr/local/lib/docker/cli-plugins
 if [ ! -x /usr/local/lib/docker/cli-plugins/docker-compose ]; then
-  curl -fsSL "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-aarch64" \
+  curl -fsSL "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-$compose_arch" \
     -o /usr/local/lib/docker/cli-plugins/docker-compose
   chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
 fi
