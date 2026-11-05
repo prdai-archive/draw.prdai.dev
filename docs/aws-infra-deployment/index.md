@@ -5,36 +5,45 @@ description: Terraform stack for a cheap EC2 host behind Cloudflare, with weekly
 
 # Deploy on a single EC2 instance
 
-Terraform provisions a small Arm64 EC2 host in `ap-south-1`, keeps Docker data on
-a separate EBS volume, and puts Cloudflare in front. A weekly GitHub Action merges
-upstream, and a systemd timer redeploys the published images without touching the
-database volume.
+Terraform provisions a small EC2 host in `ap-south-1`, keeps Docker data on a
+separate EBS volume, and puts Cloudflare in front. A weekly GitHub Action merges
+upstream and deploys over SSM, with a systemd timer as a fallback. Neither path
+touches the database volume.
 
 ## What gets created
 
-| Resource                             | Detail                                                             |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| VPC, public subnet, internet gateway | Dedicated `10.42.0.0/16` network, no NAT                           |
-| EC2 instance                         | `t4g.nano`, Amazon Linux 2023 Arm64, 1 GiB swap                    |
-| Root volume                          | 8 GiB gp3, replaced with the instance                              |
-| Data volume                          | 8 GiB gp3 mounted at `/var/lib/docker`, `prevent_destroy`          |
-| Elastic IP                           | Cloudflare origin address                                          |
-| Security group                       | 443 from Cloudflare ranges only, SSH closed by default             |
-| IAM role                             | `AmazonSSMManagedInstanceCore` for shell access without open ports |
-| Cloudflare A record                  | `draw.prdai.dev`, proxied, points at the Elastic IP                |
+| Resource                             | Detail                                                                |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| VPC, public subnet, internet gateway | Dedicated `10.42.0.0/16` network, no NAT                              |
+| EC2 instance                         | `t4g.nano` by default, Amazon Linux 2023, 2 GiB swap                  |
+| Root volume                          | 8 GiB gp3, replaced with the instance                                 |
+| Data volume                          | 8 GiB gp3 by default, mounted at `/var/lib/docker`, `prevent_destroy` |
+| Elastic IP                           | Cloudflare origin address                                             |
+| Security group                       | 443 from Cloudflare ranges only, SSH closed by default                |
+| IAM role                             | `AmazonSSMManagedInstanceCore` for shell access without open ports    |
+| Cloudflare A record                  | `draw.prdai.dev`, proxied, points at the Elastic IP                   |
+| GitHub OIDC role                     | Deploy role trusted only for `refs/heads/main`, SSM permissions only  |
+
+The AMI follows the instance family: `t4g`, `c7g`, and other Graviton types use
+Arm64; `t3a`, `t3`, `m5`, and similar use x86. Bootstrap downloads the matching
+Docker Compose binary.
 
 ## Cost
 
-Mumbai list prices, 730 hours per month. AZ capacity can force a larger instance
-(`t4g.small` is the next step up when `t4g.nano` is unavailable):
+Mumbai list prices, 730 hours per month. AZ capacity, not price, is what usually
+forces a different size: EC2 and EBS rates are identical in every AZ of the region.
 
-| Item                     | Monthly   |
-| ------------------------ | --------- |
-| t4g.nano                 | $2.04     |
-| 16 GiB gp3 (root + data) | $1.46     |
-| Public IPv4              | $3.65     |
-| Cloudflare proxy         | $0.00     |
-| **Total**                | **$7.15** |
+| Item             | Default `t4g.nano` | Live `t3a.micro` spot |
+| ---------------- | ------------------ | --------------------- |
+| Compute          | $2.04              | $1.39                 |
+| EBS gp3          | $1.46 (16 GiB)     | $1.28 (14 GiB)        |
+| Public IPv4      | $3.65              | $3.65                 |
+| Cloudflare proxy | $0.00              | $0.00                 |
+| **Total**        | **$7.15**          | **$6.32**             |
+
+Spot pricing is market-based. The Spot max price is a ceiling, not what you pay;
+the current market rate is charged up to that ceiling. A spike can raise the bill
+toward the on-demand cost until the request is interrupted or the cap is lowered.
 
 No EC2 free tier applies to a paid-plan account. Check remaining credits with
 `aws freetier get-account-plan-state`.
@@ -43,8 +52,8 @@ No EC2 free tier applies to a paid-plan account. Check remaining credits with
 
 - Terraform 1.10 or newer.
 - AWS credentials for a non-root identity with EC2, EIP, IAM, and VPC permissions.
-- A Cloudflare API token scoped to `prdai.dev` with `Zone:Read` and `DNS:Edit`.
-- The Cloudflare origin certificate material described below.
+- A Cloudflare API token scoped to the zone with `Zone:Read` and `DNS:Edit`.
+- A Cloudflare origin certificate, installed after the first boot.
 
 ## Configure
 
@@ -53,8 +62,19 @@ cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars`: region, hostname, zone, and optional SSH CIDRs. The
-Cloudflare token comes from the environment, never from a file in the repo.
+Edit `terraform.tfvars`. The relevant knobs:
+
+| Variable            | Default       | Effect                                               |
+| ------------------- | ------------- | ---------------------------------------------------- |
+| `instance_type`     | `t4g.nano`    | Any Arm64 or x86 type the region has capacity for    |
+| `availability_zone` | `ap-south-1b` | Subnet, instance, and data volume all follow this AZ |
+| `root_volume_gb`    | `8`           | OS and Docker images live on the data volume instead |
+| `data_volume_gb`    | `8`           | Docker state, SQLite, uploads; `prevent_destroy`     |
+| `use_spot_instance` | `false`       | Persistent Spot request with stop-on-interruption    |
+| `spot_max_price`    | unset         | Optional Spot ceiling per hour                       |
+| `repo_ref`          | `main`        | Branch or tag cloned and deployed by the host        |
+
+The Cloudflare token comes from the environment, never from a file in the repo.
 
 ```sh
 export AWS_PROFILE=<profile>
@@ -67,6 +87,11 @@ terraform apply
 The first boot installs Docker, mounts the data volume, creates `.env` with
 generated `JWT_SECRET` and `CSRF_SECRET`, and enables the deploy timer. The stack
 does not start until the origin certificate exists.
+
+If the region has no capacity for the chosen type, AWS returns
+`InsufficientInstanceCapacity`. Change `availability_zone` or `instance_type`;
+subnet and instance are recreated, and the data volume moves only if the AZ
+changes, which needs a snapshot copy.
 
 ## Cloudflare origin certificate
 
@@ -88,6 +113,9 @@ sudo systemctl start excalidash-deploy
 
 Terraform creates the proxied A record. SSL mode and Always Use HTTPS stay manual
 so the deploy token only needs DNS permissions.
+
+The certificate lives on the root volume, not the data volume. After any instance
+replacement, reinstall it and start `excalidash-deploy` again.
 
 ## Access control
 
@@ -129,17 +157,23 @@ sudo systemctl start excalidash-deploy
 journalctl -u excalidash-deploy -n 100 --no-pager
 ```
 
-Each run stops the backend, archives the `excalidash_backend-data` volume to
-`/opt/excalidash/backups/predeploy-<stamp>.tgz`, pulls images, starts the stack,
-waits for `/api/health`, and keeps the last four archives. To pin a release instead
-of `latest`, set `EXCALIDASH_TAG` in `/opt/excalidash/.env`.
+Each run fetches the deploy ref, pulls images, stops the backend, archives the
+`excalidash_backend-data` volume to `/opt/excalidash/backups/predeploy-<stamp>.tgz`,
+starts the stack, waits for `/api/health`, and keeps the last four archives.
+Pulling before the backup keeps old architecture layers from breaking the archive
+step. To pin a release instead of `latest`, set `EXCALIDASH_TAG` in
+`/opt/excalidash/.env`.
 
 ## Storage rules
 
 - The SQLite database, uploads, and generated secrets live on the data EBS volume.
+- The data volume is labelled `excalidash-data`; ext4 truncates longer labels, so
+  keep the name at 15 characters or fewer or the fstab mount will not match.
 - `terraform destroy` fails while the data volume exists. That is intentional.
 - Never run `docker compose down --volumes`. The deploy script only runs `up -d`.
 - Instance replacement reattaches the data volume; no data is lost.
+- Spot interruption uses stop behavior, so the volume and root survive. The site
+  returns when AWS fulfils the request again.
 
 ## Restore a backup
 
@@ -157,10 +191,12 @@ sudo systemctl start excalidash-deploy.timer
 
 ## Troubleshooting
 
-| Symptom                   | Check                                                                                        |
-| ------------------------- | -------------------------------------------------------------------------------------------- |
-| Cloudflare 522            | Security group allows the current Cloudflare ranges; Caddy is running                        |
-| Caddy exits on boot       | Both `origin.pem` and `origin.key` exist in `/etc/caddy/certs`                               |
-| Sync workflow cannot push | Repository settings -> Actions -> Workflow permissions -> Read and write                     |
-| Collaboration drops       | `TRUST_PROXY=3` matches Cloudflare, Caddy, and nginx; WebSocket upgrades reach `/socket.io/` |
-| Out of memory             | `free -m`, `dmesg -T                                                                         | tail`; swap lives on the root volume |
+| Symptom                        | Check                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Cloudflare 521 or 522          | Caddy is running, the certificate files exist, and the security group has the current CF ranges |
+| Caddy exits on boot            | Both `origin.pem` and `origin.key` exist in `/etc/caddy/certs`                                  |
+| `exec format error`            | Instance architecture changed; the deploy pulls the matching images before the backup           |
+| `InsufficientInstanceCapacity` | Try another AZ or instance type; capacity is per-AZ and changes over time                       |
+| Sync workflow cannot push      | Repository settings -> Actions -> Workflow permissions -> Read and write                        |
+| Collaboration drops            | `TRUST_PROXY=3` matches Cloudflare, Caddy, and nginx; WebSocket upgrades reach `/socket.io/`    |
+| Out of memory                  | `free -m` and `dmesg -T \| tail`; swap is a 2 GiB file on the root volume                       |

@@ -2,7 +2,14 @@ aws_region      = "ap-south-1"
 app_hostname    = "draw.prdai.dev"
 cloudflare_zone = "prdai.dev"
 
-instance_type = "t4g.nano"
+instance_type     = "t4g.nano"
+availability_zone = "ap-south-1b"
+root_volume_gb    = 8
+data_volume_gb    = 8
 
+use_spot_instance = false
+# spot_max_price = "0.0062"
+
+repo_ref = "main"
 
 ssh_allowed_cidrs = ["203.0.113.10/32"]
