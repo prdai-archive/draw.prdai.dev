@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly ExcaliDash deploy
+
+[Timer]
+OnCalendar=Mon 03:30 UTC
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target
